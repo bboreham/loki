@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/thanos-io/objstore"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -236,8 +237,12 @@ func doLocalQueryWithV1Engine(params logql.LiteralParams, bucketName string) (lo
 	return query.Exec(ctx)
 }
 
+var tracer = otel.Tracer("querycomparator")
+
 func doLocalQueryWithV2EngineScheduler(params logql.LiteralParams, bucket objstore.Bucket) (logqlmodel.Result, error) {
 	ctx := user.InjectOrgID(context.Background(), orgID)
+	ctx, span := tracer.Start(ctx, "doLocalQueryWithV2EngineScheduler")
+	defer span.End()
 
 	sched, err := engine.NewScheduler(engine.SchedulerParams{
 		Logger:        glog.With(logger, "component", "scheduler"),
