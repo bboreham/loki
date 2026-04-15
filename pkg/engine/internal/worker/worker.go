@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"runtime"
 	"sync"
 	"time"
 
@@ -156,7 +155,7 @@ func New(config Config) (*Worker, error) {
 
 	numThreads := config.NumThreads
 	if numThreads == 0 {
-		numThreads = runtime.GOMAXPROCS(0)
+		numThreads = 2 //runtime.GOMAXPROCS(0)
 	}
 
 	return &Worker{

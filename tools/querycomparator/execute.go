@@ -261,7 +261,7 @@ func doLocalQueryWithV2EngineScheduler(params logql.LiteralParams, bucket objsto
 		Config: engine.WorkerConfig{
 			SchedulerLookupAddress:  "",
 			SchedulerLookupInterval: 60,
-			WorkerThreads:           64,
+			WorkerThreads:           2,
 		},
 		Executor: engine.ExecutorConfig{
 			BatchSize: 128,
