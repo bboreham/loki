@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/grafana/dskit/user"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/promql"
 	"github.com/thanos-io/objstore"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -135,14 +135,25 @@ func doExecuteLocallyV2SchedulerRemote(params logql.LiteralParams, bucket objsto
 
 // checkResult processes and displays query results
 func checkResult(result logqlmodel.Result) error {
+	if metrics, ok := result.Data.(promql.Vector); ok {
+		return checkResultMetrics(metrics)
+	}
 	streams, ok := result.Data.(logqlmodel.Streams)
 	if !ok {
-		return errors.New("unexpected response type")
+		return fmt.Errorf("unexpected response type %T", result.Data)
 	}
 	level.Info(logger).Log("msg", "query results", "stream_count", len(streams))
 	for _, stream := range streams {
 		firstTs := stream.Entries[0].Timestamp
 		level.Info(logger).Log("msg", "stream result", "timestamp", firstTs, "labels", stream.Labels)
+	}
+	return nil
+}
+
+func checkResultMetrics(v promql.Vector) error {
+	level.Info(logger).Log("msg", "query results", "row", len(v))
+	for _, s := range v {
+		level.Info(logger).Log("timestamp", s.T, "value", s.F, "labels", s.Metric)
 	}
 	return nil
 }

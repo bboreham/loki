@@ -15,9 +15,9 @@ import (
 // The access key id, secret access key, and session token are required for S3 dataobj bucket and must be provided.
 // The region endpoint follows the format "s3.<aws region name>.amazonaws.com" e.g. "s3.eu-south-2.amazonaws.com".
 func MustS3DataobjBucket(bucketName string, regionEndpoint string) objstore.Bucket {
-	accessKeyID := ""
-	secretAccessKey := ""
-	sessionToken := ""
+	accessKeyID := "redacted"
+	secretAccessKey := "redacted"
+	sessionToken := "redacted"
 
 	if accessKeyID == "" || secretAccessKey == "" || sessionToken == "" {
 		log.Fatal("access key id, secret access key, and session token are required for S3 dataobj bucket")
