@@ -3,7 +3,6 @@ package streams
 import (
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -54,9 +53,15 @@ func (s *Stream) Reset() {
 	s.Rows = 0
 }
 
-const shardFactor = 32
-
-var shardBits = int(math.Log2(shardFactor))
+const (
+	// ShardBits is the number of high labels.StableHash(labels) bits that select a stream's shard bucket.
+	// Changing it is a storage-format break, not a tunable: the query side reads it to map shards to
+	// buckets, and the exact fast path trusts stored bucket values without re-verifying them, so a change
+	// would mis-read every object written with the old value.
+	ShardBits = 5
+	// ShardFactor is the number of physical shard buckets, 2^ShardBits.
+	ShardFactor = 1 << ShardBits
+)
 
 var streamPool = sync.Pool{
 	New: func() interface{} {
@@ -226,7 +231,7 @@ func (b *Builder) getOrAddStream(streamLabels labels.Labels) *Stream {
 // ShardBucket returns the physical shard bucket for streamLabels.
 func ShardBucket(streamLabels labels.Labels) uint64 {
 	fp := labels.StableHash(streamLabels)
-	return fp >> (64 - shardBits)
+	return fp >> (64 - ShardBits)
 }
 
 func (b *Builder) addStream(hash uint64, streamLabels labels.Labels) *Stream {
