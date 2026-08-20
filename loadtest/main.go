@@ -84,24 +84,7 @@ func main() {
 	// selector matches many streams (heavy input); grouping stays small so results don't blow up.
 	// Both instant and range variants reach up to 24h of data (the widest window is 24h).
 	allQueries := []queryDef{
-		// instant: a [W] range-vector at a single point, W up to 24h.
-		{"instant/count_5m", "instant", `sum(count_over_time(%s[5m]))`, 5 * time.Minute, 0},
-		{"instant/count_1h", "instant", `sum(count_over_time(%s[1h]))`, time.Hour, 0},
-		{"instant/count_6h", "instant", `sum(count_over_time(%s[6h]))`, 6 * time.Hour, 0},
-		{"instant/count_24h", "instant", `sum(count_over_time(%s[24h]))`, 24 * time.Hour, 0},
-		{"instant/rate_1h", "instant", `sum(rate(%s[1h]))`, time.Hour, 0},
-		{"instant/bytes_1h", "instant", `sum(bytes_over_time(%s[1h]))`, time.Hour, 0},
-		{"instant/countby_level_6h", "instant", `sum by (level) (count_over_time(%s[6h]))`, 6 * time.Hour, 0},
-		// high output cardinality: group by a high-cardinality label -> ~thousands of output series.
-		{"instant/countby_job_6h", "instant", `sum by (job) (count_over_time(%s[6h]))`, 6 * time.Hour, 0},
-		// range: a query_range spanning up to 24h, stepped so the step count stays bounded.
-		{"range/count_1h_1m", "range", `sum(count_over_time(%s[5m]))`, time.Hour, time.Minute},
-		{"range/count_6h_5m", "range", `sum(count_over_time(%s[5m]))`, 6 * time.Hour, 5 * time.Minute},
-		{"range/count_24h_15m", "range", `sum(count_over_time(%s[5m]))`, 24 * time.Hour, 15 * time.Minute},
-		{"range/rate_6h_5m", "range", `sum(rate(%s[5m]))`, 6 * time.Hour, 5 * time.Minute},
-		{"range/countby_level_6h_5m", "range", `sum by (level) (count_over_time(%s[5m]))`, 6 * time.Hour, 5 * time.Minute},
-		// high output cardinality: group by a high-cardinality label -> ~thousands of output series.
-		{"range/countby_job_6h_5m", "range", `sum by (job) (count_over_time(%s[5m]))`, 6 * time.Hour, 5 * time.Minute},
+		{"range/logs_1h_1m", "range", `%s`, time.Minute, time.Minute},
 	}
 	var queries []queryDef
 	for _, q := range allQueries {
@@ -223,6 +206,10 @@ func runQuery(ctx context.Context, c *http.Client, base, tenant, selector string
 	var s sample
 	if err != nil {
 		s = sample{latency: lat, ok: false}
+		if verbose {
+			fmt.Printf("  %-24s eval=%s err=%s lat=%s\n",
+				q.name, evalTime.UTC().Format(time.RFC3339), err.Error(), s.latency.Round(time.Millisecond))
+		}
 	} else {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -231,12 +218,17 @@ func runQuery(ctx context.Context, c *http.Client, base, tenant, selector string
 			st := queryStats(body)
 			s.bytes, s.streams, s.series = st.bytes, st.streams, st.series
 			s.usedV2, s.streamFirst, s.tsFirst = st.usedV2, st.streamFirst, st.tsFirst
+			if verbose {
+				fmt.Printf("  %-24s eval=%s http=%d lat=%s engine=%s order=%s streams=%d series=%d bytes=%.2fGB\n",
+					q.name, evalTime.UTC().Format(time.RFC3339), s.status, s.latency.Round(time.Millisecond),
+					engineLabel(boolToInt(s.usedV2), 1), orderLabel(s.streamFirst, s.tsFirst), s.streams, s.series, float64(s.bytes)/1e9)
+			}
+		} else {
+			if verbose {
+				fmt.Printf("  %-24s http=%s body=%q\n",
+					q.name, resp.Status, body)
+			}
 		}
-	}
-	if verbose {
-		fmt.Printf("  %-24s eval=%s http=%d lat=%s engine=%s order=%s streams=%d series=%d bytes=%.2fGB\n",
-			q.name, evalTime.UTC().Format(time.RFC3339), s.status, s.latency.Round(time.Millisecond),
-			engineLabel(boolToInt(s.usedV2), 1), orderLabel(s.streamFirst, s.tsFirst), s.streams, s.series, float64(s.bytes)/1e9)
 	}
 	return s
 }
@@ -360,10 +352,10 @@ func report(perType map[string][]sample, dur time.Duration) {
 		fmt.Printf("WARNING: %d queries ran on the v2/thor engine (engine=v2/mix), bypassing v1 stream-first.\n"+
 			"         Lower -max-window below the cell's query_engine.storage_lag so windows stay on v1.\n", anyV2)
 	}
-	if hasOrder == 0 && anyV2 == 0 && allOK > 0 {
-		fmt.Printf("WARNING: no stream-first/timestamp-first counters in any response (order=none everywhere).\n" +
-			"         The deployed build likely lacks the stream-first stats change.\n")
-	}
+	//	if hasOrder == 0 && anyV2 == 0 && allOK > 0 {
+	//		fmt.Printf("WARNING: no stream-first/timestamp-first counters in any response (order=none everywhere).\n" +
+	//			"         The deployed build likely lacks the stream-first stats change.\n")
+	//	}
 }
 
 // engineLabel classifies a query's executions by engine: v1 (none used v2), v2 (all did), or mix.
