@@ -412,9 +412,6 @@ replace github.com/grafana/regexp => github.com/grafana/regexp v0.0.0-2025090509
 
 replace github.com/grafana/loki/pkg/push => ./pkg/push
 
-// leodido fork his project to continue support
-replace github.com/influxdata/go-syslog/v3 => github.com/leodido/go-syslog/v4 v4.6.0
-
 replace github.com/thanos-io/objstore => github.com/grafana/objstore v0.0.0-20261013190022-d05e3fae91a4
 
 //  Latest Kafka protocols are not supported in Warpstream at this time.
